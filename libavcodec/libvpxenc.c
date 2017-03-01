@@ -108,6 +108,14 @@ typedef struct VPxEncoderContext {
     int noise_sensitivity;
     int vpx_cs;
     float level;
+
+	int tune_content;
+	int max_inter_rate;
+	int gf_cbr_boost;
+	int min_gf_interval;
+	int max_gf_interval;
+	int key_frame_disable;
+	int frame_periodic_boost;
 } VPxContext;
 
 /** String mappings for enum vp8e_enc_control_id */
@@ -138,6 +146,12 @@ static const char *const ctlidstr[] = {
 #if VPX_ENCODER_ABI_VERSION >= 12
     [VP9E_SET_TARGET_LEVEL]            = "VP9E_SET_TARGET_LEVEL",
     [VP9E_GET_LEVEL]                   = "VP9E_GET_LEVEL",
+	[VP9E_SET_TUNE_CONTENT]            = "VP9E_SET_TUNE_CONTENT",
+	[VP9E_SET_MAX_INTER_BITRATE_PCT]   = "VP9E_SET_MAX_INTER_BITRATE_PCT",
+	[VP9E_SET_GF_CBR_BOOST_PCT]        = "VP9E_SET_GF_CBR_BOOST_PCT",
+	[VP9E_SET_MIN_GF_INTERVAL]         = "VP9E_SET_MIN_GF_INTERVAL",
+	[VP9E_SET_MAX_GF_INTERVAL]         = "VP9E_SET_MAX_GF_INTERVAL",
+	[VP9E_SET_FRAME_PERIODIC_BOOST]    = "VP9E_SET_FRAME_PERIODIC_BOOST",
 #endif
 #endif
 };
@@ -597,6 +611,9 @@ FF_ENABLE_DEPRECATION_WARNINGS
     if (avctx->gop_size >= 0)
         enccfg.kf_max_dist = avctx->gop_size;
 
+	if ( ctx->key_frame_disable >= 0 )
+		enccfg.kf_mode = ctx->key_frame_disable == 0 ? VPX_KF_AUTO : VPX_KF_DISABLED;
+
     if (enccfg.g_pass == VPX_RC_FIRST_PASS)
         enccfg.g_lag_in_frames = 0;
     else if (enccfg.g_pass == VPX_RC_LAST_PASS) {
@@ -719,6 +736,18 @@ FF_ENABLE_DEPRECATION_WARNINGS
 #endif
 #if VPX_ENCODER_ABI_VERSION >= 12
         codecctl_int(avctx, VP9E_SET_TARGET_LEVEL, ctx->level < 0 ? 255 : lrint(ctx->level * 10));
+		if ( ctx->tune_content >= 0 )
+			codecctl_int( avctx, VP9E_SET_TUNE_CONTENT, ctx->tune_content == 0 ? VP9E_CONTENT_DEFAULT : VP9E_CONTENT_SCREEN );
+		if ( ctx->max_inter_rate >= 0 )
+			codecctl_int( avctx, VP9E_SET_MAX_INTER_BITRATE_PCT, ctx->max_inter_rate );
+		if ( ctx->gf_cbr_boost >= 0 )
+			codecctl_int( avctx, VP9E_SET_GF_CBR_BOOST_PCT, ctx->gf_cbr_boost );
+		if ( ctx->min_gf_interval >= 0 )
+			codecctl_int( avctx, VP9E_SET_MIN_GF_INTERVAL, ctx->min_gf_interval );
+		if ( ctx->max_gf_interval >= 0 )
+			codecctl_int( avctx, VP9E_SET_MAX_GF_INTERVAL, ctx->max_gf_interval );
+		if ( ctx->frame_periodic_boost >= 0 )
+			codecctl_int( avctx, VP9E_SET_FRAME_PERIODIC_BOOST, ctx->frame_periodic_boost );
 #endif
     }
 #endif
@@ -1131,6 +1160,15 @@ static const AVOption vp9_options[] = {
     { "cyclic",          "Cyclic Refresh Aq",   0, AV_OPT_TYPE_CONST, {.i64 = 3}, 0, 0, VE, "aq_mode" },
 #if VPX_ENCODER_ABI_VERSION >= 12
     {"level", "Specify level", OFFSET(level), AV_OPT_TYPE_FLOAT, {.dbl=-1}, -1, 6.2, VE},
+	{ "tune-content", "Enable screen sharing mode", OFFSET( tune_content ), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, 1, VE },
+	{ "max-inter-rate", "Maximum P-frame bitrate (pct) 0=unlimited", OFFSET( max_inter_rate ), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, VE },
+	{ "gf-cbr-boost", "Boost percentage for Golden Frame in CBR mode 0=off", OFFSET( gf_cbr_boost ), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, VE },
+	{ "min-gf-interval", "Minimum interval between GF/ARF frames", OFFSET( min_gf_interval ), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, VE },
+	{ "max-gf-interval", "Maximum interval between GF/ARF frames", OFFSET( max_gf_interval ), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, VE },
+	{ "key-frame-mode", "Automatic or disabled key frames", OFFSET( key_frame_disable ), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, 1, VE, "kf_mode" },
+	{ "automatic", "Automatic key frames", 0, AV_OPT_TYPE_CONST, { .i64 = 0 }, 0, 0, VE, "kf_mode" },
+	{ "disabled", "Disabled key frames", 0, AV_OPT_TYPE_CONST, { .i64 = 1 }, 0, 0, VE, "kf_mode" },
+	{ "frame-periodic-boost", "Codec control function to enable/disable periodic Q boost", OFFSET( frame_periodic_boost ), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, 1, VE },
 #endif
     LEGACY_OPTIONS
     { NULL }
